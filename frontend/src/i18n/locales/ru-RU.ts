@@ -2702,6 +2702,8 @@ export default {
         action: {
           'system.setting_changed': 'Изменена системная настройка',
           'system.admin_promoted': 'Выдан системный администратор',
+          'system.api_key_created': 'Создан платформенный API-ключ',
+          'system.api_key_revoked': 'Отозван платформенный API-ключ',
           'system.admin_revoked': 'Отозван системный администратор',
           'system.user_password_reset': 'Сброшен пароль пользователя',
           'system.queue_task_retried': 'Повторно запущена сбойная задача',
@@ -2727,6 +2729,13 @@ export default {
           targetType: 'Тип цели',
           targetId: 'ID цели',
           details: 'Сырые детали'
+        },
+        drawer: {
+          sectionSummary: 'Сводка события',
+          sectionIdentifiers: 'Связанные идентификаторы',
+          sectionRequest: 'Запрос',
+          targetChange: 'Изменение',
+          requestMethod: 'Метод'
         }
       }
     }
@@ -5387,7 +5396,7 @@ export default {
     },
     im: {
       title: 'Интеграция IM',
-      description: 'Подключите агента к платформам мгновенных сообщений, таким как Feishu, Slack, Telegram, DingTalk, Mattermost и QQBot',
+      description: 'Подключите агента к платформам мгновенных сообщений, таким как Feishu, Slack, Telegram, DingTalk, Mattermost, QQBot и Yunzhijia',
       wecom: 'WeCom',
       feishu: 'Feishu',
       lark: 'Lark',
@@ -5397,6 +5406,7 @@ export default {
       mattermost: 'Mattermost',
       wechat: 'WeChat',
       qqbot: 'QQBot',
+      yunzhijia: 'Yunzhijia',
       addChannel: 'Добавить канал',
       channelsTitle: 'IM-каналы',
       disabled: 'Отключено',
@@ -5426,6 +5436,17 @@ export default {
       qqbotConsole: 'QQ Open Platform',
       qqbotAPIBaseURLHint: 'Необязательно. Оставьте пустым, чтобы использовать стандартный production API endpoint.',
       qqbotGatewayURLHint: 'Необязательно. Оставьте пустым, чтобы автоматически получить общий WebSocket gateway.',
+      yunzhijiaConsole: 'Консоль роботов Yunzhijia',
+      yunzhijiaModeHint: 'Поддерживаются Webhook и WebSocket; для режима WebSocket не требуется публичный URL обратного вызова.',
+      yunzhijiaSendMsgUrl: 'URL отправки сообщений',
+      yunzhijiaSecret: 'Секрет подписи (необязательно)',
+      yunzhijiaSecretPlaceholder: 'Секрет подписи HmacSHA1 из настроек робота Yunzhijia',
+      yunzhijiaSecretHint: 'Если указано, входящие обратные вызовы будут проверяться с помощью подписи HmacSHA1',
+      yunzhijiaTimeout: 'Таймаут HTTP (секунды)',
+      yunzhijiaTimeoutHint: 'Таймаут отправки ответов через URL отправки сообщений, по умолчанию 10 секунд',
+      yunzhijiaAllowedHostSuffix: 'Допустимый суффикс хоста',
+      yunzhijiaAllowedHostSuffixHint: 'Ограничить хост URL отправки сообщений этим суффиксом для безопасности (напр. yunzhijia.com)',
+      yunzhijiaRequiredCredentials: 'Укажите URL отправки сообщений и допустимый суффикс хоста',
       mattermostModeHint: 'Mattermost поддерживает только режим Webhook (исходящий вебхук + токен бота).',
       mattermostPostToMain: 'Ответы в основной ленте канала',
       mattermostPostToMainHint:
@@ -6030,6 +6051,19 @@ export default {
       startTime: 'Время начала',
       endTime: 'Время окончания',
       duration: 'Длительность',
+      failedItems: 'Документы с ошибкой',
+      failedItemsMore: 'Ещё {n} документов с ошибкой не показаны',
+      docsFailedSummary: 'Не удалось синхронизировать документов: {n}',
+    },
+    syncError: {
+      feishu_auth_or_permission: 'Ошибка аутентификации или недостаточно прав; проверьте учётные данные и права приложения',
+      feishu_rate_limited: 'Превышен лимит запросов к API Feishu; повтор при следующей синхронизации',
+      feishu_timeout: 'Тайм-аут экспорта или запроса; повтор при следующей синхронизации',
+      feishu_server_unavailable: 'Сервис Feishu временно недоступен; повтор при следующей синхронизации',
+      feishu_api_error: 'Ошибка API Feishu (code={code}); повтор при следующей синхронизации',
+      feishu_api_error_generic: 'Ошибка API Feishu; повтор при следующей синхронизации',
+      sync_failed: 'Ошибка синхронизации; повтор при следующей синхронизации',
+      ingest_failed: 'Ошибка импорта; смотрите логи сервера',
     },
     connector: {
       feishu: 'Feishu (Фэйшу)',
@@ -6584,5 +6618,15 @@ export default {
         details: 'Сырые детали',
       },
     },
+  },
+  platformApiKeys: {
+    title: 'Платформенные API-ключи', description: 'Учетные данные для автоматизации между рабочими пространствами. Для API пространства используйте X-Tenant-ID.',
+    securityNotice: 'Платформенный ключ может выбрать любое пространство. Выдавайте только необходимые права; секрет показывается один раз.',
+    create: 'Создать платформенный API-ключ', createDescription: 'Ключ не привязан к пространству, но каждая операция ограничена правами.',
+    loading: 'Загрузка…', empty: 'Платформенных ключей нет', name: 'Название', namePlaceholder: 'Например: центральная автоматизация', key: 'Ключ', capability: 'Права', capabilityMore: '+{count}', viewAllCapabilities: 'Показать все права', capabilityHint: 'Права пространства применяются к X-Tenant-ID, системные права — к API управления платформой.', lastUsed: 'Последнее использование', createdAt: 'Создан', actions: 'Действия', never: 'Никогда', systemCapabilityGroup: 'Управление платформой',
+    capabilities: { tenantsRead: 'Просмотр пространств', tenantsManage: 'Управление пространствами', settingsRead: 'Просмотр системных настроек', settingsManage: 'Управление системными настройками', runtimeRead: 'Просмотр очередей', runtimeManage: 'Управление очередями', auditRead: 'Просмотр аудита' },
+    capabilityHints: { tenantsRead: 'Список, поиск и просмотр всех пространств.', tenantsManage: 'Создание, изменение и удаление пространств.', settingsRead: 'Чтение настроек платформы.', settingsManage: 'Изменение настроек платформы.', runtimeRead: 'Просмотр очередей и задач.', runtimeManage: 'Повтор, запуск, отмена и удаление задач.', auditRead: 'Чтение системного журнала аудита.' },
+    createdTitle: 'Платформенный API-ключ создан', createdDescription: 'Скопируйте и сохраните ключ сейчас. Полное значение больше не будет показано.', copy: 'Копировать', copySuccess: 'Ключ скопирован',
+    deleteConfirm: 'Удалить «{name}»? Автоматизация с этим ключом сразу перестанет работать.', deleteSuccess: 'Платформенный API-ключ удалён', deleteFailed: 'Не удалось удалить API-ключ', nameRequired: 'Введите название', capabilityRequired: 'Выберите хотя бы одно право', loadFailed: 'Не удалось загрузить ключи', createFailed: 'Не удалось создать ключ',
   },
 }
