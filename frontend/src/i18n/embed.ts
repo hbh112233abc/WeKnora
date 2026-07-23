@@ -490,6 +490,19 @@ const messages = {
         "filterSynthesis": "综合",
         "filterComparison": "对比"
       }
+    },
+    "embedGraph": {
+      "subtitle": "{nodes} 个实体 · {relations} 条关系",
+      "searchPlaceholder": "搜索实体",
+      "layoutForce": "力导向",
+      "layoutCircular": "环形",
+      "reset": "重置布局",
+      "loading": "加载中...",
+      "empty": "暂无图谱数据",
+      "attributes": "属性",
+      "relations": "关系",
+      "chunks": "关联 {count} 个片段",
+      "defaultTitle": "知识图谱"
     }
   },
   "en-US": {
@@ -981,6 +994,19 @@ const messages = {
         "filterSynthesis": "Synthesis",
         "filterComparison": "Comparisons"
       }
+    },
+    "embedGraph": {
+      "subtitle": "{nodes} entities · {relations} relations",
+      "searchPlaceholder": "Search entities",
+      "layoutForce": "Force",
+      "layoutCircular": "Circular",
+      "reset": "Reset layout",
+      "loading": "Loading...",
+      "empty": "No graph data available",
+      "attributes": "Attributes",
+      "relations": "Relations",
+      "chunks": "Linked to {count} chunks",
+      "defaultTitle": "Knowledge Graph"
     }
   }
 } as const
@@ -1094,6 +1120,19 @@ const koEmbedPublish = {
       skipFailed: '건너뛰기 실패, 다시 시도하세요',
     },
   },
+  embedGraph: {
+    subtitle: '{nodes}개 엔티티 · {relations}개 관계',
+    searchPlaceholder: '엔티티 검색',
+    layoutForce: '힘 방향',
+    layoutCircular: '원형',
+    reset: '레이아웃 초기화',
+    loading: '로딩 중...',
+    empty: '그래프 데이터 없음',
+    attributes: '속성',
+    relations: '관계',
+    chunks: '{count}개 청크 연결',
+    defaultTitle: '지식 그래프',
+  },
 } as const
 
 const ruEmbedPublish = {
@@ -1181,6 +1220,19 @@ const ruEmbedPublish = {
       resumeFailed: 'Не удалось возобновить выполнение, повторите попытку',
       skipFailed: 'Не удалось пропустить, повторите попытку',
     },
+  },
+  embedGraph: {
+    subtitle: '{nodes} сущностей · {relations} связей',
+    searchPlaceholder: 'Поиск сущностей',
+    layoutForce: 'Силовой',
+    layoutCircular: 'Круговой',
+    reset: 'Сбросить раскладку',
+    loading: 'Загрузка...',
+    empty: 'Нет данных графа',
+    attributes: 'Атрибуты',
+    relations: 'Связи',
+    chunks: 'Связано с {count} фрагментами',
+    defaultTitle: 'Граф знаний',
   },
 } as const
 

@@ -3793,6 +3793,8 @@ export default {
     tabIframe: "iframe",
     tabWidget: "浮窗",
     tabSecure: "安全模式",
+    tabGraph: "知识图谱",
+    deployGraphDesc: "将知识库的实体关系图谱以 iframe 形式嵌入到网页中，展示可视化知识网络。",
     widgetPosition: "浮窗位置",
     widgetPreview: "浮窗预览",
     positionBottomRight: "右下角",

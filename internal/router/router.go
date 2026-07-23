@@ -1363,6 +1363,7 @@ func RegisterEmbedPublicRoutes(
 		embed.POST("/exchange", embedHandler.ExchangeEmbedSession)
 		embed.GET("/config", embedHandler.GetEmbedConfig)
 		embed.GET("/suggested-questions", embedHandler.GetEmbedSuggestedQuestions)
+		embed.GET("/knowledge-graph", embedHandler.GetEmbedKnowledgeGraph)
 		embed.GET("/chunks/:chunk_id", embedHandler.GetEmbedChunk)
 		embed.POST("/sessions", embedHandler.CreateEmbedSession)
 		embed.POST("/knowledge-chat/:session_id", embedHandler.EmbedKnowledgeChat)

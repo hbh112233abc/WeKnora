@@ -227,6 +227,107 @@ func (n *Neo4jRepository) SearchNode(
 	return result.(*types.GraphData), nil
 }
 
+// GetGraph retrieves the full graph (nodes and relationships) for a namespace.
+// When limit > 0, at most that many nodes are returned.
+func (n *Neo4jRepository) GetGraph(
+	ctx context.Context,
+	namespace types.NameSpace,
+	limit int,
+) (*types.GraphData, error) {
+	if n.driver == nil {
+		logger.Warnf(ctx, "NOT SUPPORT RETRIEVE GRAPH")
+		return &types.GraphData{}, nil
+	}
+	session := n.driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
+	defer session.Close(ctx)
+
+	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (interface{}, error) {
+		labelExpr := n.Label(namespace)
+		query := `
+			MATCH (n:` + labelExpr + `)
+			WITH n
+			OPTIONAL MATCH (n)-[r]-(m:` + labelExpr + `)
+			RETURN n, r, m
+		`
+		if limit > 0 {
+			query += fmt.Sprintf(" LIMIT %d", limit)
+		}
+		result, err := tx.Run(ctx, query, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to run query: %v", err)
+		}
+
+		graphData := &types.GraphData{}
+		nodeSeen := make(map[string]bool)
+		for result.Next(ctx) {
+			record := result.Record()
+			node, _ := record.Get("n")
+			rel, _ := record.Get("r")
+			targetNode, _ := record.Get("m")
+
+			nodeData := node.(neo4j.Node)
+
+			// 处理节点（去重）
+			nameStr, ok := nodeData.Props["name"].(string)
+			if !ok {
+				continue
+			}
+			if !nodeSeen[nameStr] {
+				nodeSeen[nameStr] = true
+				gn := &types.GraphNode{
+					Name: nameStr,
+				}
+				if chunks, ok := nodeData.Props["chunks"].([]interface{}); ok {
+					gn.Chunks = listI2listS(chunks)
+				}
+				if attrs, ok := nodeData.Props["attributes"].([]interface{}); ok {
+					gn.Attributes = listI2listS(attrs)
+				}
+				graphData.Node = append(graphData.Node, gn)
+			}
+
+			// 处理目标节点（去重）
+			if targetNode != nil {
+				targetNodeData := targetNode.(neo4j.Node)
+				targetName, ok := targetNodeData.Props["name"].(string)
+				if ok && !nodeSeen[targetName] {
+					nodeSeen[targetName] = true
+					gn := &types.GraphNode{
+						Name: targetName,
+					}
+					if chunks, ok := targetNodeData.Props["chunks"].([]interface{}); ok {
+						gn.Chunks = listI2listS(chunks)
+					}
+					if attrs, ok := targetNodeData.Props["attributes"].([]interface{}); ok {
+						gn.Attributes = listI2listS(attrs)
+					}
+					graphData.Node = append(graphData.Node, gn)
+				}
+			}
+
+			// 处理关系
+			if rel != nil {
+				relData := rel.(neo4j.Relationship)
+				targetNodeData := targetNode.(neo4j.Node)
+				targetName, ok := targetNodeData.Props["name"].(string)
+				if ok {
+					graphData.Relation = append(graphData.Relation, &types.GraphRelation{
+						Node1: nameStr,
+						Node2: targetName,
+						Type:  relData.Type,
+					})
+				}
+			}
+		}
+		return graphData, nil
+	})
+	if err != nil {
+		logger.Errorf(ctx, "get graph failed: %v", err)
+		return nil, err
+	}
+	return result.(*types.GraphData), nil
+}
+
 func listI2listS(list []any) []string {
 	result := make([]string, len(list))
 	for i, v := range list {

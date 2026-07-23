@@ -3772,6 +3772,8 @@ export default {
     tabIframe: 'iframe',
     tabWidget: '위젯',
     tabSecure: '보안 모드',
+    tabGraph: '지식 그래프',
+    deployGraphDesc: '지식 베이스의 엔티티-관계 그래프를 iframe으로 웹 페이지에 임베드하여 지식 네트워크를 시각화합니다.',
     widgetPosition: '위젯 위치',
     widgetPreview: '위젯 미리보기',
     positionBottomRight: '오른쪽 하단',

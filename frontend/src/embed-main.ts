@@ -7,6 +7,7 @@ import '@/assets/theme/theme.css'
 import { installTDesignIconOfflineGuard } from '@/utils/tdesign-icon-offline'
 import i18n from './i18n/embed'
 import EmbedPage from '@/views/embed/EmbedPage.vue'
+import EmbedGraphPage from '@/views/embed/EmbedGraphPage.vue'
 
 installTDesignIconOfflineGuard()
 
@@ -17,6 +18,11 @@ const router = createRouter({
       path: '/embed/:channelId',
       name: 'embed',
       component: EmbedPage,
+    },
+    {
+      path: '/embed/graph/:channelId',
+      name: 'embed-graph',
+      component: EmbedGraphPage,
     },
   ],
 })

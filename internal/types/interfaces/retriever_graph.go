@@ -14,4 +14,6 @@ type RetrieveGraphRepository interface {
 	DelGraph(ctx context.Context, namespace []types.NameSpace) error
 	// SearchNode searches for nodes in the repository
 	SearchNode(ctx context.Context, namespace types.NameSpace, nodes []string) (*types.GraphData, error)
+	// GetGraph retrieves the full graph (nodes and relationships) for a namespace
+	GetGraph(ctx context.Context, namespace types.NameSpace, limit int) (*types.GraphData, error)
 }

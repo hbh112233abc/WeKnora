@@ -286,6 +286,39 @@ export async function getEmbedConfig(channelId: string, token: string) {
   )
 }
 
+/** 知识图谱节点 */
+export interface EmbedGraphNode {
+  name: string
+  chunks?: string[]
+  attributes?: string[]
+}
+
+/** 知识图谱关系 */
+export interface EmbedGraphRelation {
+  node1: string
+  node2: string
+  type: string
+}
+
+/** 知识图谱数据 */
+export interface EmbedGraphData {
+  node?: EmbedGraphNode[]
+  relation?: EmbedGraphRelation[]
+}
+
+/** 获取嵌入渠道的知识图谱数据 */
+export async function getEmbedKnowledgeGraph(
+  channelId: string,
+  token: string,
+  limit?: number,
+) {
+  const params = limit ? `?limit=${limit}` : ''
+  return get<{ success: boolean; data: EmbedGraphData }>(
+    `/api/v1/embed/${channelId}/knowledge-graph${params}`,
+    { headers: { Authorization: `Embed ${token}` } },
+  )
+}
+
 export async function createEmbedSession(channelId: string, token: string) {
   return post<{ success: boolean; data: { id: string; sig: string } }>(
     `/api/v1/embed/${channelId}/sessions`,
@@ -564,6 +597,29 @@ export function buildEmbedURL(
   if (qs) path += `?${qs}`
   if (token) path += `#token=${encodeURIComponent(token)}`
   return path
+}
+
+/** 构建知识图谱嵌入页 URL */
+export function buildEmbedGraphURL(
+  channelId: string,
+  token?: string,
+  opts?: { locale?: string; refreshKey?: number; baseUrl?: string },
+) {
+  const base = safeBaseUrl(opts?.baseUrl) || resolveEmbedBaseUrl()
+  let path = `${base}/embed/graph/${encodeURIComponent(channelId)}`
+  const params = new URLSearchParams()
+  if (opts?.locale?.trim()) params.set('locale', opts.locale.trim())
+  if (opts?.refreshKey) params.set('r', String(opts.refreshKey))
+  const qs = params.toString()
+  if (qs) path += `?${qs}`
+  if (token) path += `#token=${encodeURIComponent(token)}`
+  return path
+}
+
+/** 构建知识图谱嵌入 iframe 代码 */
+export function buildEmbedGraphSnippet(channelId: string, token?: string) {
+  const url = escapeHtmlAttr(buildEmbedGraphURL(channelId, token))
+  return `<iframe src="${url}" style="width:100%;height:600px;border:none;border-radius:12px" allow="clipboard-write"></iframe>`
 }
 
 /** Escape a value for safe interpolation inside an HTML double-quoted attribute. */

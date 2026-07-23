@@ -3246,6 +3246,8 @@ export default {
     tabIframe: 'iframe',
     tabWidget: 'Виджет',
     tabSecure: 'Безопасный режим',
+    tabGraph: 'Граф знаний',
+    deployGraphDesc: 'Встройте граф сущностей и связей базы знаний как iframe на свою веб-страницу для визуализации сети знаний.',
     widgetPosition: 'Позиция виджета',
     widgetPreview: 'Предпросмотр виджета',
     positionBottomRight: 'Справа внизу',

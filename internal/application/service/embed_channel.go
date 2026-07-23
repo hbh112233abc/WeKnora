@@ -29,6 +29,7 @@ type embedChannelService struct {
 	repo         interfaces.EmbedChannelRepository
 	agentService interfaces.CustomAgentService
 	chunkService interfaces.ChunkService
+	graphEngine   interfaces.RetrieveGraphRepository
 	redis        *redis.Client
 }
 
@@ -36,13 +37,15 @@ func NewEmbedChannelService(
 	repo interfaces.EmbedChannelRepository,
 	agentService interfaces.CustomAgentService,
 	chunkService interfaces.ChunkService,
+	graphEngine interfaces.RetrieveGraphRepository,
 	redisClient *redis.Client,
 ) interfaces.EmbedChannelService {
 	return &embedChannelService{
-		repo:         repo,
-		agentService: agentService,
-		chunkService: chunkService,
-		redis:        redisClient,
+		repo:          repo,
+		agentService:  agentService,
+		chunkService:  chunkService,
+		graphEngine:   graphEngine,
+		redis:         redisClient,
 	}
 }
 
@@ -333,6 +336,40 @@ func (s *embedChannelService) SuggestedQuestions(
 func (s *embedChannelService) EmbedDisplayTitle(ctx context.Context, ch *types.EmbedChannel) string {
 	title, _, _ := s.resolveDisplayMeta(ctx, ch)
 	return title
+}
+
+// KnowledgeGraph retrieves the entity/relation graph for the knowledge bases
+// associated with the embed channel's agent. Returns an empty graph when the
+// graph engine is not configured or the agent has no selected knowledge bases.
+func (s *embedChannelService) KnowledgeGraph(ctx context.Context, ch *types.EmbedChannel, limit int) (*types.GraphData, error) {
+	if s.graphEngine == nil {
+		return &types.GraphData{}, nil
+	}
+	kbIDs := s.resolveKnowledgeBaseIDs(ctx, ch)
+	if len(kbIDs) == 0 {
+		return &types.GraphData{}, nil
+	}
+	merged := &types.GraphData{}
+	nodeSeen := make(map[string]bool)
+	for _, kbID := range kbIDs {
+		ns := types.NameSpace{KnowledgeBase: kbID}
+		data, err := s.graphEngine.GetGraph(ctx, ns, limit)
+		if err != nil {
+			return nil, err
+		}
+		if data == nil {
+			continue
+		}
+		for _, n := range data.Node {
+			if nodeSeen[n.Name] {
+				continue
+			}
+			nodeSeen[n.Name] = true
+			merged.Node = append(merged.Node, n)
+		}
+		merged.Relation = append(merged.Relation, data.Relation...)
+	}
+	return merged, nil
 }
 
 func (s *embedChannelService) resolveDisplayMeta(

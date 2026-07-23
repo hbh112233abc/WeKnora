@@ -350,7 +350,33 @@
           </div>
 
           <div class="deploy-block">
-            <h5 class="deploy-block__title">{{ $t('embedPublish.channelKey') }}</h5>
+            <h5 class="deploy-block__title">{{ $t('embedPublish.tabGraph') }}</h5>
+            <p class="deploy-block__desc">{{ $t('embedPublish.deployGraphDesc') }}</p>
+
+            <div v-if="drawerSnippetTab !== 'secure'" class="embed-token-warning" role="note">
+              <t-icon name="error-circle" class="embed-token-warning__icon" />
+              <p>{{ $t('embedPublish.publishTokenWarning') }}</p>
+            </div>
+
+            <div class="code-panel">
+              <div class="code-panel__toolbar">
+                <span class="code-panel__label">{{ $t('embedPublish.tabGraph') }}</span>
+                <div class="code-panel__actions">
+                  <t-button size="small" variant="text" @click="openGraphPreview">
+                    <template #icon><t-icon name="browse" /></template>
+                    {{ $t('embedPublish.preview') }}
+                  </t-button>
+                  <t-button size="small" variant="outline" @click="copyGraphSnippet">
+                    <template #icon><t-icon name="file-copy" /></template>
+                    {{ $t('embedPublish.copyCode') }}
+                  </t-button>
+                </div>
+              </div>
+              <pre class="code-panel__pre">{{ drawerGraphSnippet }}</pre>
+            </div>
+          </div>
+
+          <div class="deploy-block">
             <p class="deploy-block__desc">{{ $t('embedPublish.channelKeyDesc') }}</p>
 
             <div v-if="drawerChannel" class="channel-key-control">
@@ -409,6 +435,8 @@ import {
   rotateEmbedToken,
   issueEmbedPreviewSession,
   buildEmbedSnippet,
+  buildEmbedGraphSnippet,
+  buildEmbedGraphURL,
   buildWidgetSnippet,
   buildSecureWidgetSnippet,
   buildSecureServerNodeExample,
@@ -808,6 +836,33 @@ const snippetScenarioHint = computed(() => {
     ? t('embedPublish.embedWidgetDesc')
     : t('embedPublish.embedIframeDesc')
 })
+
+const graphSnippet = (ch: EmbedChannel) => {
+  const token = tokenFor(ch)
+  if (!token) return `<!-- ${t('embedPublish.tokenHint')} -->`
+  return buildEmbedGraphSnippet(ch.id, token)
+}
+
+const drawerGraphSnippet = computed(() => {
+  const ch = drawerChannel.value
+  if (!ch) return ''
+  return graphSnippet(ch)
+})
+
+const copyGraphSnippet = async () => {
+  const ch = drawerChannel.value
+  if (!ch) return
+  await navigator.clipboard.writeText(graphSnippet(ch))
+  MessagePlugin.success(t('embedPublish.copied'))
+}
+
+const openGraphPreview = () => {
+  const ch = drawerChannel.value
+  if (!ch) return
+  const token = tokenFor(ch)
+  const url = buildEmbedGraphURL(ch.id, token)
+  window.open(url, '_blank')
+}
 
 const fillFormFromChannel = (ch: EmbedChannel) => {
   editingId.value = ch.id

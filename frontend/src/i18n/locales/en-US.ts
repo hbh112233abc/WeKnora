@@ -2533,6 +2533,8 @@ export default {
     tabIframe: 'iframe',
     tabWidget: 'Widget',
     tabSecure: 'Secure mode',
+    tabGraph: 'Knowledge Graph',
+    deployGraphDesc: 'Embed the knowledge base entity-relation graph as an iframe on your web page to visualize the knowledge network.',
     widgetPosition: 'Widget position',
     widgetPreview: 'Widget preview',
     positionBottomRight: 'Bottom right',

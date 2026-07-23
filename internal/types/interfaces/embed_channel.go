@@ -34,5 +34,6 @@ type EmbedChannelService interface {
 	SuggestedQuestions(ctx context.Context, ch *types.EmbedChannel, limit int) ([]types.SuggestedQuestion, error)
 	EmbedChunk(ctx context.Context, ch *types.EmbedChannel, chunkID string) (*types.Chunk, error)
 	EmbedDisplayTitle(ctx context.Context, ch *types.EmbedChannel) string
+	KnowledgeGraph(ctx context.Context, ch *types.EmbedChannel, limit int) (*types.GraphData, error)
 	GetOwnedChannel(ctx context.Context, tenantID uint64, id string) (*types.EmbedChannel, error)
 }

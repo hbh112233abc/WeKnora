@@ -342,6 +342,28 @@ func (h *EmbedChannelHandler) GetEmbedConfig(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": h.embedSvc.PublicConfig(c.Request.Context(), ch)})
 }
 
+// GetEmbedKnowledgeGraph 返回嵌入渠道所绑定知识库的实体/关系图谱数据。
+func (h *EmbedChannelHandler) GetEmbedKnowledgeGraph(c *gin.Context) {
+	ch, ok := middleware.EmbedChannelFromContext(c.Request.Context())
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	limit := 500
+	if v := strings.TrimSpace(c.Query("limit")); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+	data, err := h.embedSvc.KnowledgeGraph(c.Request.Context(), ch, limit)
+	if err != nil {
+		logger.Error(c.Request.Context(), "embed knowledge graph failed", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load knowledge graph"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": data})
+}
+
 func (h *EmbedChannelHandler) GetEmbedChunk(c *gin.Context) {
 	ch, ok := middleware.EmbedChannelFromContext(c.Request.Context())
 	if !ok {
