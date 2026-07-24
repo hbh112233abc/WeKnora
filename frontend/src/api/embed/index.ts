@@ -1,5 +1,6 @@
 import { get, post, put, del } from '@/utils/request'
 import { resolveEmbedBaseUrl } from '@/utils/embedBaseUrl'
+import type { WikiGraphQueryParams, WikiGraphData, WikiPage } from '@/api/wiki'
 
 export interface EmbedChannel {
   id: string
@@ -315,6 +316,33 @@ export async function getEmbedKnowledgeGraph(
   const params = limit ? `?limit=${limit}` : ''
   return get<{ success: boolean; data: EmbedGraphData }>(
     `/api/v1/embed/${channelId}/knowledge-graph${params}`,
+    { headers: { Authorization: `Embed ${token}` } },
+  )
+}
+
+/** 获取嵌入渠道的 wiki 链接图谱（复用 wiki 图谱服务，按渠道绑定知识库合并返回） */
+export async function getEmbedWikiGraph(
+  channelId: string,
+  token: string,
+  params: WikiGraphQueryParams,
+) {
+  const query = new URLSearchParams()
+  if (params.mode) query.set('mode', params.mode)
+  if (params.center) query.set('center', params.center)
+  if (params.depth) query.set('depth', String(params.depth))
+  if (params.limit) query.set('limit', String(params.limit))
+  if (params.types && params.types.length) query.set('types', params.types.join(','))
+  const qs = query.toString()
+  return get<WikiGraphData>(
+    `/api/v1/embed/${channelId}/wiki/graph${qs ? `?${qs}` : ''}`,
+    { headers: { Authorization: `Embed ${token}` } },
+  )
+}
+
+/** 获取嵌入渠道 wiki 页面详情（用于图谱抽屉展示正文） */
+export async function getEmbedWikiPage(channelId: string, token: string, slug: string) {
+  return get<WikiPage>(
+    `/api/v1/embed/${channelId}/wiki/page?slug=${encodeURIComponent(slug)}`,
     { headers: { Authorization: `Embed ${token}` } },
   )
 }

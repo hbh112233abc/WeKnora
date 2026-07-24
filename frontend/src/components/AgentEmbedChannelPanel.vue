@@ -856,10 +856,24 @@ const copyGraphSnippet = async () => {
   MessagePlugin.success(t('embedPublish.copied'))
 }
 
-const openGraphPreview = () => {
+const openGraphPreview = async () => {
   const ch = drawerChannel.value
   if (!ch) return
-  const token = tokenFor(ch)
+  // 与聊天预览（openPreviewForChannel）保持一致：管理端不会下发 publish_token（json:"-"），
+  // 当本地没有可用 token 时通过预览会话换取短期 session token，确保预览链接携带有效 #token= 鉴权片段。
+  let token = tokenFor(ch)
+  if (!token) {
+    try {
+      const res = await issueEmbedPreviewSession(ch.id)
+      token = res?.data?.session_token || ''
+    } catch {
+      token = ''
+    }
+  }
+  if (!token) {
+    MessagePlugin.warning(t('embedPublish.previewUnavailable'))
+    return
+  }
   const url = buildEmbedGraphURL(ch.id, token)
   window.open(url, '_blank')
 }

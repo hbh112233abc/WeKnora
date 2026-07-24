@@ -33,6 +33,7 @@ type EmbedChannelHandler struct {
 	suggestionHandler *MessageSuggestionHandler
 	mcpOAuthHandler   *MCPOAuthHandler
 	mcpServiceHandler *MCPServiceHandler
+	wikiService       interfaces.WikiPageService
 	redis             *redis.Client
 }
 
@@ -44,6 +45,7 @@ func NewEmbedChannelHandler(
 	suggestionHandler *MessageSuggestionHandler,
 	mcpOAuthHandler *MCPOAuthHandler,
 	mcpServiceHandler *MCPServiceHandler,
+	wikiService interfaces.WikiPageService,
 	redisClient *redis.Client,
 ) *EmbedChannelHandler {
 	return &EmbedChannelHandler{
@@ -54,6 +56,7 @@ func NewEmbedChannelHandler(
 		suggestionHandler: suggestionHandler,
 		mcpOAuthHandler:   mcpOAuthHandler,
 		mcpServiceHandler: mcpServiceHandler,
+		wikiService:       wikiService,
 		redis:             redisClient,
 	}
 }
@@ -363,6 +366,154 @@ func (h *EmbedChannelHandler) GetEmbedKnowledgeGraph(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": data})
 }
+
+// GetEmbedWikiGraph 返回嵌入渠道所绑定知识库的 wiki 链接图谱。
+// 复用 wiki 图谱服务，把渠道关联到的多个知识库图谱合并为一份返回，
+// 鉴权方式与其它 embed 接口一致（EmbedAuth 中间件解析渠道身份）。
+func (h *EmbedChannelHandler) GetEmbedWikiGraph(c *gin.Context) {
+	ch, ok := middleware.EmbedChannelFromContext(c.Request.Context())
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	kbIDs := h.embedSvc.PublicConfig(c.Request.Context(), ch).KnowledgeBaseIDs
+	merged := &types.WikiGraphData{
+		Nodes: []types.WikiGraphNode{},
+		Edges: []types.WikiGraphEdge{},
+		Meta:  types.WikiGraphMeta{Mode: "overview", Returned: 0, Total: 0},
+	}
+	if len(kbIDs) == 0 {
+		c.JSON(http.StatusOK, merged)
+		return
+	}
+
+	mode := strings.TrimSpace(c.Query("mode"))
+	if mode == "" {
+		mode = "overview"
+	}
+	center := strings.TrimSpace(c.Query("center"))
+	depth := 1
+	if v := strings.TrimSpace(c.Query("depth")); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			depth = parsed
+		}
+	}
+	limit := wikiGraphEmbedMaxLimit
+	if v := strings.TrimSpace(c.Query("limit")); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 {
+			if parsed > wikiGraphEmbedMaxLimit {
+				parsed = wikiGraphEmbedMaxLimit
+			}
+			limit = parsed
+		}
+	}
+	var typeFilter []string
+	if v := strings.TrimSpace(c.Query("types")); v != "" {
+		for _, t := range strings.Split(v, ",") {
+			t = strings.TrimSpace(t)
+			if t != "" {
+				typeFilter = append(typeFilter, t)
+			}
+		}
+	}
+
+	req := &types.WikiGraphRequest{
+		Mode:   mode,
+		Center: center,
+		Depth:  depth,
+		Types:  typeFilter,
+		Limit:  limit,
+	}
+	for _, kbID := range kbIDs {
+		req.KnowledgeBaseID = kbID
+		data, err := h.wikiService.GetGraph(c.Request.Context(), req)
+		if err != nil {
+			logger.Error(c.Request.Context(), "embed wiki graph load failed", err)
+			continue
+		}
+		mergeWikiGraphData(merged, data)
+	}
+
+	c.JSON(http.StatusOK, merged)
+}
+
+// GetEmbedWikiPage 返回嵌入渠道所绑定知识库中某个 wiki 页面的详情，
+// 用于图谱抽屉展示页面正文。按渠道关联的知识库依次查找，命中即返回。
+func (h *EmbedChannelHandler) GetEmbedWikiPage(c *gin.Context) {
+	ch, ok := middleware.EmbedChannelFromContext(c.Request.Context())
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	slug := strings.TrimSpace(c.Query("slug"))
+	if slug == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "slug is required"})
+		return
+	}
+	kbIDs := h.embedSvc.PublicConfig(c.Request.Context(), ch).KnowledgeBaseIDs
+	for _, kbID := range kbIDs {
+		page, err := h.wikiService.GetPageBySlug(c.Request.Context(), kbID, slug)
+		if err == nil && page != nil {
+			c.JSON(http.StatusOK, page)
+			return
+		}
+	}
+	c.JSON(http.StatusNotFound, gin.H{"error": "wiki page not found"})
+}
+
+// mergeWikiGraphData 将一份 wiki 图谱合并进已累积的结果中，按 slug 去重节点、
+// 按 source+target 去重边，并保留截断/总数等元信息。
+func mergeWikiGraphData(merged *types.WikiGraphData, incoming *types.WikiGraphData) {
+	if incoming == nil {
+		return
+	}
+	nodeIndex := make(map[string]int, len(merged.Nodes))
+	for i, n := range merged.Nodes {
+		nodeIndex[n.Slug] = i
+	}
+	for _, n := range incoming.Nodes {
+		if idx, ok := nodeIndex[n.Slug]; ok {
+			if n.LinkCount > merged.Nodes[idx].LinkCount {
+				merged.Nodes[idx] = n
+			}
+			continue
+		}
+		nodeIndex[n.Slug] = len(merged.Nodes)
+		merged.Nodes = append(merged.Nodes, n)
+	}
+
+	edgeSeen := make(map[string]bool, len(merged.Edges))
+	for _, e := range merged.Edges {
+		edgeSeen[e.Source+"\x00"+e.Target] = true
+	}
+	for _, e := range incoming.Edges {
+		key := e.Source + "\x00" + e.Target
+		if edgeSeen[key] {
+			continue
+		}
+		edgeSeen[key] = true
+		merged.Edges = append(merged.Edges, e)
+	}
+
+	if incoming.Meta.Returned > 0 {
+		merged.Meta.Returned = len(merged.Nodes)
+	}
+	if incoming.Meta.Total > merged.Meta.Total {
+		merged.Meta.Total = incoming.Meta.Total
+	}
+	if incoming.Meta.Truncated {
+		merged.Meta.Truncated = true
+	}
+	if incoming.Meta.Mode == "ego" {
+		merged.Meta.Mode = "ego"
+		merged.Meta.Center = incoming.Meta.Center
+		merged.Meta.Depth = incoming.Meta.Depth
+	}
+}
+
+// wikiGraphEmbedMaxLimit 限制单次 embed wiki 图谱返回的最大节点数。
+const wikiGraphEmbedMaxLimit = 1000
 
 func (h *EmbedChannelHandler) GetEmbedChunk(c *gin.Context) {
 	ch, ok := middleware.EmbedChannelFromContext(c.Request.Context())

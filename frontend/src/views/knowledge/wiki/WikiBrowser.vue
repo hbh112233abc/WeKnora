@@ -722,6 +722,7 @@ import {
   type WikiPage,
   type WikiFolderNode,
   type WikiGraphData,
+  type WikiGraphQueryParams,
   type WikiStats,
   type WikiPageIssue,
   type WikiLogEntry,
@@ -744,6 +745,14 @@ const props = defineProps<{
   // 对应后端 g.OwnedWikiKBOrAdmin() 守卫（KB creator OR Admin+ OR
   // org-share editor）。父组件没传时按 false 兜底，避免漏 gate。
   canEdit?: boolean
+  /** embed 模式下由调用方注入的数据获取函数，使用 embed 鉴权 */
+  embed?: boolean
+  /** 获取 wiki 链接图谱数据（替代平台鉴权的 getWikiGraph） */
+  graphFetcher?: (params: WikiGraphQueryParams) => Promise<unknown>
+  /** 获取 wiki 页面详情（替代平台鉴权的 getWikiPage），用于图谱抽屉 */
+  pageFetcher?: (slug: string) => Promise<unknown>
+  /** embed 模式下用于初始定位的 slug（替代路由 query.slug） */
+  initialSlug?: string
 }>()
 
 const emit = defineEmits<{
@@ -1404,7 +1413,9 @@ function renderMarkdown(content: string): string {
 
 async function openGraphDrawer(slug: string) {
   try {
-    const res = await getWikiPage(props.knowledgeBaseId, slug)
+    const res = props.pageFetcher
+      ? await props.pageFetcher(slug)
+      : await getWikiPage(props.knowledgeBaseId, slug)
     graphDrawerPage.value = (res as any).data || res as any
     graphDrawerVisible.value = true
   } catch (e) {
@@ -2805,11 +2816,17 @@ async function loadGraph() {
     return
   }
   try {
-    const res = await getWikiGraph(props.knowledgeBaseId, {
-      mode: 'overview',
-      limit: GRAPH_OVERVIEW_LIMIT,
-      types: graphFilterTypesToArray(),
-    })
+    const res = props.graphFetcher
+      ? await props.graphFetcher({
+          mode: 'overview',
+          limit: GRAPH_OVERVIEW_LIMIT,
+          types: graphFilterTypesToArray(),
+        })
+      : await getWikiGraph(props.knowledgeBaseId, {
+          mode: 'overview',
+          limit: GRAPH_OVERVIEW_LIMIT,
+          types: graphFilterTypesToArray(),
+        })
     graphData.value = (res as any).data || res as any
     // Seed the search dropdown's empty-state with this overview snapshot
     // so opening the select without typing shows the top-500 by link_count
@@ -2823,10 +2840,11 @@ async function loadGraph() {
     resetBloomGenerations(graphData.value?.nodes)
     await nextTick()
     renderGraph()
-    if (route.query.slug && typeof route.query.slug === 'string') {
+    const slug = props.embed ? props.initialSlug : (route.query.slug as string | undefined)
+    if (slug && typeof slug === 'string') {
       graphSelectedSlug.value = null // reset first to ensure watch triggers
       setTimeout(() => {
-        handleGraphSearchSelect(route.query.slug as string)
+        handleGraphSearchSelect(slug)
       }, 300)
     }
   } catch (e) {
@@ -2856,13 +2874,21 @@ async function loadEgoGraph(slug: string, depth = GRAPH_EGO_DEFAULT_DEPTH) {
     return
   }
   try {
-    const res = await getWikiGraph(props.knowledgeBaseId, {
-      mode: 'ego',
-      center: slug,
-      depth,
-      limit: GRAPH_EGO_LIMIT,
-      types: graphFilterTypesToArray(),
-    })
+    const res = props.graphFetcher
+      ? await props.graphFetcher({
+          mode: 'ego',
+          center: slug,
+          depth,
+          limit: GRAPH_EGO_LIMIT,
+          types: graphFilterTypesToArray(),
+        })
+      : await getWikiGraph(props.knowledgeBaseId, {
+          mode: 'ego',
+          center: slug,
+          depth,
+          limit: GRAPH_EGO_LIMIT,
+          types: graphFilterTypesToArray(),
+        })
     graphData.value = (res as any).data || res as any
     graphMode.value = 'ego'
     graphCenter.value = slug
@@ -2925,13 +2951,21 @@ async function loadBloomNeighbors(anchorSlug: string, depth = GRAPH_EGO_DEFAULT_
   }
   graphLoading.value = true
   try {
-    const res = await getWikiGraph(props.knowledgeBaseId, {
-      mode: 'ego',
-      center: anchorSlug,
-      depth,
-      limit: GRAPH_EGO_LIMIT,
-      types: graphFilterTypesToArray(),
-    })
+    const res = props.graphFetcher
+      ? await props.graphFetcher({
+          mode: 'ego',
+          center: anchorSlug,
+          depth,
+          limit: GRAPH_EGO_LIMIT,
+          types: graphFilterTypesToArray(),
+        })
+      : await getWikiGraph(props.knowledgeBaseId, {
+          mode: 'ego',
+          center: anchorSlug,
+          depth,
+          limit: GRAPH_EGO_LIMIT,
+          types: graphFilterTypesToArray(),
+        })
     const incoming = (res as any).data || res as any
     if (!incoming || !Array.isArray(incoming.nodes)) return
 
@@ -3110,13 +3144,21 @@ async function growFrontier() {
         const idx = cursor++
         const slug = frontier[idx]
         try {
-          const res = await getWikiGraph(props.knowledgeBaseId, {
-            mode: 'ego',
-            center: slug,
-            depth: GRAPH_EGO_DEFAULT_DEPTH,
-            limit: GRAPH_EGO_LIMIT,
-            types: graphFilterTypesToArray(),
-          })
+          const res = props.graphFetcher
+            ? await props.graphFetcher({
+                mode: 'ego',
+                center: slug,
+                depth: GRAPH_EGO_DEFAULT_DEPTH,
+                limit: GRAPH_EGO_LIMIT,
+                types: graphFilterTypesToArray(),
+              })
+            : await getWikiGraph(props.knowledgeBaseId, {
+                mode: 'ego',
+                center: slug,
+                depth: GRAPH_EGO_DEFAULT_DEPTH,
+                limit: GRAPH_EGO_LIMIT,
+                types: graphFilterTypesToArray(),
+              })
           const data = (res as any).data || res as any
           if (data?.nodes) responses.push(data)
         } catch (e) {
@@ -4468,8 +4510,11 @@ watch(() => route.query.slug, (newSlug) => {
 })
 
 onMounted(() => {
-  loadPages()
-  loadStats()
+  // embed 模式只渲染图谱，跳过知识库列表与统计等平台侧预加载
+  if (!props.embed) {
+    loadPages()
+    loadStats()
+  }
   if (props.view === 'graph') loadGraph()
 })
 
